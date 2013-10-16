@@ -6,17 +6,15 @@ import org.junit.Test;
 
 import java.io.File;
 
-public class FileTest extends JmsTestCase
+public class FileCopyTest extends JmsTestCase
 {
     @Test
-    public void testFileUnchanged() throws Exception
+    public void testFileUnchangedThroughJms() throws Exception
     {
         FileUtil.deleteFile(new File("target/outbox/order.xls"));
         FileUtil.copyFile(new File("./target/test-classes/order.xls"), new File("./target/inbox/order.xls"));
         Thread.sleep(1000);
         assertFileExists("target/outbox/order.xls");
-
-
     }
 
     @Override
