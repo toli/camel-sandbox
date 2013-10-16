@@ -21,12 +21,12 @@ public class SpringFileCopyTest extends CamelSpringTestSupport
     @Test
     public void testFileUnchangedThroughDirect() throws Exception
     {
-        FileUtil.deleteFile(new File("target/outbox-direct/order.xls"));
-        FileUtil.copyFile(new File("target/test-classes/order.xls"), new File("target/inbox-direct/order.xls"));
+        FileUtil.deleteFile(new File("target/outbox-direct-spring/order.xls"));
+        FileUtil.copyFile(new File("target/test-classes/order.xls"), new File("target/inbox-direct-spring/order.xls"));
         Thread.sleep(2000);
-        assertFileExists("target/outbox-direct/order.xls");
+        assertFileExists("target/outbox-direct-spring/order.xls");
         byte[] original = IOUtils.toByteArray(new FileInputStream("target/test-classes/order.xls"));
-        byte[] copy = IOUtils.toByteArray(new FileInputStream("target/outbox-direct/order.xls"));
+        byte[] copy = IOUtils.toByteArray(new FileInputStream("target/outbox-direct-spring/order.xls"));
         assertArrayEquals(original, copy);
     }
 }

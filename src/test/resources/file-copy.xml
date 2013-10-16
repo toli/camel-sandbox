@@ -8,12 +8,12 @@
 
     <camelContext xmlns="http://camel.apache.org/schema/spring">
         <route>
-            <from uri="file://target/inbox-direct"/>
-            <to uri="direct:myfiles"/>
+            <from uri="file://target/inbox-direct-spring"/>
+            <to uri="direct:myfiles-spring"/>
         </route>
         <route>
-            <from uri="direct:myfiles"/>
-            <to uri="file://target/outbox-direct"/>
+            <from uri="direct:myfiles-spring"/>
+            <to uri="file://target/outbox-direct-spring"/>
         </route>
     </camelContext>
 
