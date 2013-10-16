@@ -3,8 +3,10 @@ package com.carmanconsulting.sandbox.camel;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.camel.CamelContext;
 import org.apache.camel.component.jms.JmsComponent;
+import org.apache.camel.util.FileUtil;
 
 import javax.jms.ConnectionFactory;
+import java.io.File;
 
 public abstract class JmsTestCase extends CamelTestCase
 {
@@ -14,7 +16,7 @@ public abstract class JmsTestCase extends CamelTestCase
 
     protected ConnectionFactory createConnectionFactory()
     {
-        return new ActiveMQConnectionFactory(String.format("vm://%s", getClass().getSimpleName()));
+        return new ActiveMQConnectionFactory(String.format("vm://%s?broker.persistent=false", getClass().getSimpleName()));
     }
 
     @Override
