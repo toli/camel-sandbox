@@ -9,7 +9,7 @@ import org.junit.Test;
 /**
  * @see <a href="https://issues.apache.org/jira/browse/CAMEL-6927">CAMEL-6927</a>
  */
-public class BeanTransformTest extends JmsTestCase
+public class BeanTransformTest extends CamelTestCase
 {
 
     @Produce(uri="direct:input")
