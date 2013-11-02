@@ -8,6 +8,12 @@ import org.junit.Test;
 import java.io.File;
 import java.io.FileInputStream;
 
+/**
+ * User having trouble claimed they were having trouble copying Excel files successfully using Camel.
+ *
+ * @see <a href="http://camel.465427.n5.nabble.com/Can-t-move-excel-files-correctly-ActiveMQ-bug-td5741661.html">Form Posting</a>
+ *
+ */
 public class FileCopyTest extends JmsTestCase
 {
     @Test
