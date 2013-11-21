@@ -11,6 +11,25 @@ import java.io.File;
 public abstract class JmsTestCase extends CamelTestCase
 {
 //----------------------------------------------------------------------------------------------------------------------
+// Fields
+//----------------------------------------------------------------------------------------------------------------------
+
+    private ConnectionFactory connectionFactory;
+
+//----------------------------------------------------------------------------------------------------------------------
+// Getter/Setter Methods
+//----------------------------------------------------------------------------------------------------------------------
+
+    protected final ConnectionFactory getConnectionFactory()
+    {
+        if(connectionFactory == null)
+        {
+            connectionFactory = createConnectionFactory();
+        }
+        return connectionFactory;
+    }
+
+//----------------------------------------------------------------------------------------------------------------------
 // Other Methods
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -23,7 +42,7 @@ public abstract class JmsTestCase extends CamelTestCase
     protected void initializeCamelContext(CamelContext context)
     {
         JmsComponent jms = new JmsComponent(context);
-        jms.setConnectionFactory(createConnectionFactory());
+        jms.setConnectionFactory(getConnectionFactory());
         context.addComponent("jms", jms);
     }
 }
