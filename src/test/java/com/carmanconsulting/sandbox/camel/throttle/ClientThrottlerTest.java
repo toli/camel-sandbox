@@ -1,5 +1,6 @@
-package com.carmanconsulting.sandbox.camel;
+package com.carmanconsulting.sandbox.camel.throttle;
 
+import com.carmanconsulting.sandbox.camel.CamelTestCase;
 import com.carmanconsulting.sandbox.camel.throttle.ClientThrottler;
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.Produce;
