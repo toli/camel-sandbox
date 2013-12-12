@@ -20,7 +20,7 @@ public class ClientThrottler implements Processor {
     private final Expression clientIdExpression;
     private final int maxCount;
     private final long window;
-    private final LoadingCache<String,ClientThrottlingState> stateCache = CacheBuilder.<String,ClientThrottlingState>newBuilder().build(new ClientThrottlingStateLoader());
+    private final LoadingCache<String,ClientThrottlingState> stateCache = CacheBuilder.<String,ClientThrottlingState>newBuilder().maximumSize(1000).build(new ClientThrottlingStateLoader());
 
 //----------------------------------------------------------------------------------------------------------------------
 // Constructors
