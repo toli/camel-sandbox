@@ -6,21 +6,18 @@ import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class LoadBalancerTest extends CamelTestCase {
+//----------------------------------------------------------------------------------------------------------------------
+// Fields
+//----------------------------------------------------------------------------------------------------------------------
 
     @Produce(uri = "direct:input")
     private ProducerTemplate input;
 
-    private static final Logger logger = LoggerFactory.getLogger(LoadBalancerTest.class);
-
-    @Test
-    public void testLoadBalancing() {
-        input.sendBody("Testing 1");
-        input.sendBody("Testing 2");
-    }
+//----------------------------------------------------------------------------------------------------------------------
+// Other Methods
+//----------------------------------------------------------------------------------------------------------------------
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
@@ -35,7 +32,17 @@ public class LoadBalancerTest extends CamelTestCase {
         };
     }
 
-    private static class ThreadLogger implements Processor {
+    @Test
+    public void testLoadBalancing() {
+        input.sendBody("Testing 1");
+        input.sendBody("Testing 2");
+    }
+
+//----------------------------------------------------------------------------------------------------------------------
+// Inner Classes
+//----------------------------------------------------------------------------------------------------------------------
+
+    private class ThreadLogger implements Processor {
         @Override
         public void process(Exchange exchange) throws Exception {
             logger.info("Received message {} on thread {}.", exchange.getIn().getBody(String.class), Thread.currentThread().getName());
