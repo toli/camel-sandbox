@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PermitThrottlerTest extends JmsTestCase {
 //----------------------------------------------------------------------------------------------------------------------
@@ -145,32 +146,32 @@ public class PermitThrottlerTest extends JmsTestCase {
     }
 
     private static class SemaphoreThrottler {
-        private int maxPermitCount;
         private final Semaphore semaphore;
+        private final AtomicInteger maxPermitCount;
 
         private SemaphoreThrottler(int maxPermitCount) {
-            this.maxPermitCount = maxPermitCount;
+            this.maxPermitCount = new AtomicInteger(maxPermitCount);
             this.semaphore = new Semaphore(maxPermitCount);
         }
 
-        public synchronized void setMaxPermitCount(int maxPermitCount) {
-            final int additionalPermits = maxPermitCount - this.maxPermitCount;
-            this.maxPermitCount = maxPermitCount;
+        public void setMaxPermitCount(int newMaxPermitCount) {
+            final int oldMaxPermitCount = maxPermitCount.getAndSet(newMaxPermitCount);
+            final int additionalPermits = newMaxPermitCount - oldMaxPermitCount;
             if (additionalPermits > 0) {
                 semaphore.release(additionalPermits);
             }
         }
 
-        public synchronized int getMaxPermitCount() {
-            return maxPermitCount;
+        public int getMaxPermitCount() {
+            return maxPermitCount.get();
         }
 
-        public synchronized boolean acquirePermit() {
+        public boolean acquirePermit() {
             return semaphore.tryAcquire();
         }
 
-        public synchronized void releasePermit() {
-            if (semaphore.availablePermits() < maxPermitCount) {
+        public void releasePermit() {
+            if (semaphore.availablePermits() < maxPermitCount.get() ) {
                 semaphore.release();
             }
         }
