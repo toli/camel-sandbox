@@ -8,6 +8,7 @@ import org.apache.camel.Expression;
 import org.apache.camel.Processor;
 import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
+import org.apache.camel.Service;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.builder.SimpleBuilder;
 import org.apache.camel.component.jms.JmsConfiguration;
@@ -16,6 +17,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jms.ConnectionFactory;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import java.lang.management.ManagementFactory;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
@@ -51,14 +56,17 @@ public class PermitThrottlerTest extends JmsTestCase {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                final ThrottlingEngine engine = new ThrottlingEngine(5);
+                final SemaphoreThrottlingEngine engine = new SemaphoreThrottlingEngine(5);
+                final MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+                final ObjectName name = new ObjectName("com.carmanconsulting.sandbox.camel:type=SemaphoreThrottlingEngine");
+                server.registerMBean(engine, name);
                 final SimpleBuilder correlationIdExpression = simple("${header[group]}");
                 from("jms:queue:input")
                         .process(new AcquirePermitProcessor(correlationIdExpression, engine))
                         .choice()
                         .when(header(PERMITTED_HEADER)).to("jms:queue:output")
                         .otherwise().to("jms:queue:input");
-                from("jms:queue:output").process(new RandomProcessor(1000, 2000)).to("log:processed?showAll=true&multiline=true&level=INFO").to("jms:queue:release");
+                from("jms:queue:output?concurrentConsumers=20").process(new RandomProcessor(1000, 2000)).to("log:processed?showAll=true&multiline=true&level=INFO").to("jms:queue:release");
                 from("jms:queue:release").process(new ReleasePermitProcessor(correlationIdExpression, engine));
             }
         };
@@ -68,12 +76,12 @@ public class PermitThrottlerTest extends JmsTestCase {
     public void testThrottlingEngine() throws Exception {
         final Random random = new Random();
         final int nGroups = 10;
-        for (int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 10000; ++i) {
             final int group = random.nextInt(nGroups);
             template.sendBodyAndHeader(String.format("Message %d (group %d)", i, group), "group", group);
         }
 
-        Thread.sleep(20000);
+        Thread.sleep(120000);
     }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -82,9 +90,9 @@ public class PermitThrottlerTest extends JmsTestCase {
 
     private static class AcquirePermitProcessor implements Processor {
         private final Expression correlationIdExpression;
-        private final ThrottlingEngine engine;
+        private final SemaphoreThrottlingEngine engine;
 
-        private AcquirePermitProcessor(Expression correlationIdExpression, ThrottlingEngine engine) {
+        private AcquirePermitProcessor(Expression correlationIdExpression, SemaphoreThrottlingEngine engine) {
             this.correlationIdExpression = correlationIdExpression;
             this.engine = engine;
         }
@@ -115,9 +123,9 @@ public class PermitThrottlerTest extends JmsTestCase {
 
     private static class ReleasePermitProcessor implements Processor {
         private final Expression correlationIdExpression;
-        private final ThrottlingEngine engine;
+        private final SemaphoreThrottlingEngine engine;
 
-        private ReleasePermitProcessor(Expression correlationIdExpression, ThrottlingEngine engine) {
+        private ReleasePermitProcessor(Expression correlationIdExpression, SemaphoreThrottlingEngine engine) {
             this.correlationIdExpression = correlationIdExpression;
             this.engine = engine;
         }
@@ -130,38 +138,106 @@ public class PermitThrottlerTest extends JmsTestCase {
         }
     }
 
-    private static class ThrottlingEngine {
-        private Map<String, Semaphore> semaphores = new MapMaker().concurrencyLevel(10).makeMap();
+    public static interface SemaphoreThrottlingEngineMBean {
+        Map<String, Integer> getPermitCounts();
+
+        void setPermitCount(String correlationId, int permits);
+    }
+
+    private static class SemaphoreThrottler {
+        private int maxPermitCount;
+        private final Semaphore semaphore;
+
+        private SemaphoreThrottler(int maxPermitCount) {
+            this.maxPermitCount = maxPermitCount;
+            this.semaphore = new Semaphore(maxPermitCount);
+        }
+
+        public synchronized void setMaxPermitCount(int maxPermitCount) {
+            final int additionalPermits = maxPermitCount - this.maxPermitCount;
+            this.maxPermitCount = maxPermitCount;
+            if (additionalPermits > 0) {
+                semaphore.release(additionalPermits);
+            }
+        }
+
+        public synchronized int getMaxPermitCount() {
+            return maxPermitCount;
+        }
+
+        public synchronized boolean acquirePermit() {
+            return semaphore.tryAcquire();
+        }
+
+        public synchronized void releasePermit() {
+            if (semaphore.availablePermits() < maxPermitCount) {
+                semaphore.release();
+            }
+        }
+
+    }
+
+    private static class SemaphoreThrottlingEngine implements SemaphoreThrottlingEngineMBean, Service {
+
+        @Override
+        public void start() throws Exception {
+
+        }
+
+        @Override
+        public void stop() throws Exception {
+
+        }
+
+        private Map<String, SemaphoreThrottler> throttlers = new MapMaker().concurrencyLevel(10).makeMap();
 
         private final int defaultPermitCount;
 
-        private ThrottlingEngine(int defaultPermitCount) {
+        private SemaphoreThrottlingEngine(int defaultPermitCount) {
             this.defaultPermitCount = defaultPermitCount;
         }
 
         public boolean acquirePermit(String correlationId) {
             LOGGER.debug("Attempting to acquire permit ({})...", correlationId);
-            Semaphore semaphore = semaphores.get(correlationId);
-            if (semaphore == null) {
-                LOGGER.info("Creating new semaphore ({})...", correlationId);
-                semaphore = new Semaphore(defaultPermitCount);
-                semaphores.put(correlationId, semaphore);
-            }
-            final boolean acquired = semaphore.tryAcquire();
-            if(acquired) {
+            SemaphoreThrottler throttler = getOrCreateThrottler(correlationId);
+            final boolean acquired = throttler.acquirePermit();
+            if (acquired) {
                 LOGGER.info("Permit acquired ({})", correlationId);
-            }
-            else {
+            } else {
                 LOGGER.debug("Permit unavailable ({})", correlationId);
             }
             return acquired;
         }
 
-        public void releasePermit(String correlationId) {
-            Semaphore semaphore = semaphores.get(correlationId);
-            if (semaphore != null) {
-                semaphore.release();
+        private SemaphoreThrottler getOrCreateThrottler(String correlationId) {
+            SemaphoreThrottler throttler = throttlers.get(correlationId);
+            if (throttler == null) {
+                LOGGER.info("Creating new throttler ({})...", correlationId);
+                throttler = new SemaphoreThrottler(defaultPermitCount);
+                throttlers.put(correlationId, throttler);
             }
+            return throttler;
+        }
+
+        public void releasePermit(String correlationId) {
+            SemaphoreThrottler throttler = throttlers.get(correlationId);
+            if (throttler != null) {
+                throttler.releasePermit();
+            }
+        }
+
+        @Override
+        public Map<String, Integer> getPermitCounts() {
+            Map<String, Integer> permits = new HashMap<String, Integer>();
+            for (Map.Entry<String, SemaphoreThrottler> entry : throttlers.entrySet()) {
+                permits.put(entry.getKey(), entry.getValue().getMaxPermitCount());
+            }
+            return permits;
+        }
+
+        @Override
+        public void setPermitCount(String correlationId, int permits) {
+            getOrCreateThrottler(correlationId).setMaxPermitCount(permits);
         }
     }
 }
