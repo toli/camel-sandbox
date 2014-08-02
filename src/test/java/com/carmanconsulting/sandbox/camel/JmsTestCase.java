@@ -1,12 +1,11 @@
 package com.carmanconsulting.sandbox.camel;
 
-import org.apache.activemq.ActiveMQConnectionFactory;
+import com.carmanconsulting.sandbox.camel.jms.LoggingConnectionFactory;
 import org.apache.camel.CamelContext;
 import org.apache.camel.component.jms.JmsComponent;
-import org.apache.camel.util.FileUtil;
+import org.apache.camel.component.jms.JmsConfiguration;
 
 import javax.jms.ConnectionFactory;
-import java.io.File;
 
 public abstract class JmsTestCase extends CamelTestCase
 {
@@ -35,14 +34,21 @@ public abstract class JmsTestCase extends CamelTestCase
 
     protected ConnectionFactory createConnectionFactory()
     {
-        return new ActiveMQConnectionFactory(String.format("vm://%s?broker.persistent=false", getClass().getSimpleName()));
+        return new LoggingConnectionFactory(getBrokerUrl());
+    }
+
+    protected JmsConfiguration createJmsConfiguration() {
+        return new JmsConfiguration(createConnectionFactory());
+    }
+
+    protected String getBrokerUrl() {
+        return String.format("vm://%s?broker.persistent=false", getClass().getSimpleName());
     }
 
     @Override
     protected void initializeCamelContext(CamelContext context)
     {
-        JmsComponent jms = new JmsComponent(context);
-        jms.setConnectionFactory(getConnectionFactory());
+        JmsComponent jms = new JmsComponent(createJmsConfiguration());
         context.addComponent("jms", jms);
     }
 }

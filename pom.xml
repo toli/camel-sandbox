@@ -18,7 +18,7 @@
         <maven.compiler.target>1.6</maven.compiler.target>
 
         <camel.version>2.11.2</camel.version>
-        <activemq.version>5.8.0</activemq.version>
+        <activemq.version>5.7.0</activemq.version>
         <slf4j.version>1.7.5</slf4j.version>
     </properties>
 
@@ -35,6 +35,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.camel</groupId>
+            <artifactId>camel-jetty</artifactId>
+            <version>${camel.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
             <artifactId>camel-spring</artifactId>
             <version>${camel.version}</version>
         </dependency>
@@ -42,7 +47,7 @@
         <dependency>
             <groupId>org.apache.activemq</groupId>
             <artifactId>activemq-camel</artifactId>
-            <version>5.8.0</version>
+            <version>${activemq.version}</version>
         </dependency>
 
         <dependency>

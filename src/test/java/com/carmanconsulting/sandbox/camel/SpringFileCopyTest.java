@@ -3,9 +3,9 @@ package com.carmanconsulting.sandbox.camel;
 import org.apache.camel.test.spring.CamelSpringTestSupport;
 import org.apache.camel.util.FileUtil;
 import org.apache.commons.io.IOUtils;
-import org.apache.xbean.spring.context.ClassPathXmlApplicationContext;
 import org.junit.Test;
 import org.springframework.context.support.AbstractApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import java.io.File;
 import java.io.FileInputStream;
