@@ -76,12 +76,12 @@ public class PermitThrottlerTest extends JmsTestCase {
     public void testThrottlingEngine() throws Exception {
         final Random random = new Random();
         final int nGroups = 10;
-        for (int i = 0; i < 10000; ++i) {
+        for (int i = 0; i < 100; ++i) {
             final int group = random.nextInt(nGroups);
             template.sendBodyAndHeader(String.format("Message %d (group %d)", i, group), "group", group);
         }
 
-        Thread.sleep(120000);
+        Thread.sleep(20000);
     }
 
 //----------------------------------------------------------------------------------------------------------------------
