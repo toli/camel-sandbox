@@ -70,7 +70,7 @@ public class PermitThrottlerTest extends JmsTestCase {
                         .when(header(PERMITTED_HEADER)).to("jms:queue:output")
                         .otherwise().to("jms:queue:input");
                 from("jms:queue:output?concurrentConsumers=20").process(
-                        new RandomProcessor(TimeUnit.SECONDS.toMillis(7), 2000)).to("log:processed?showAll=true&multiline=true&level=INFO").to("jms:queue:release");
+                        new RandomProcessor(correlationIdExpression, TimeUnit.SECONDS.toMillis(7), 2000)).to("log:processed?showAll=true&multiline=true&level=INFO").to("jms:queue:release");
                 from("jms:queue:release").process(new ReleasePermitProcessor(correlationIdExpression, engine));
             }
         };
@@ -80,7 +80,7 @@ public class PermitThrottlerTest extends JmsTestCase {
     public void testThrottlingEngine() throws Exception {
         Random random = new Random();
         int nGroups = 10;
-        int nMessages = 10;
+        int nMessages = 1;
         sema = new Semaphore(0);
         for (int i = 0; i < nMessages; ++i) {
             final int group = random.nextInt(nGroups);
@@ -113,16 +113,19 @@ public class PermitThrottlerTest extends JmsTestCase {
         private final long minimumDuration;
         private final long variance;
         private final Random random = new Random();
+        private final Expression correlationIdExpression;
 
-        private RandomProcessor(long minimumDuration, long variance) {
+        private RandomProcessor(Expression inCorrelationIdExpression, long minimumDuration, long variance) {
             this.minimumDuration = minimumDuration;
             this.variance = variance;
+            correlationIdExpression = inCorrelationIdExpression;
         }
 
         @Override
         public void process(Exchange exchange) throws Exception {
             final long duration = minimumDuration + Math.abs(random.nextLong()) % variance;
-            LOGGER.info("sleeping {} for exchange {}", duration, exchange);
+            LOGGER.info("sleeping {} for group {}: exchange [{}]",
+                    duration, correlationIdExpression.evaluate(exchange, String.class), exchange.getIn().getBody());
             Thread.sleep(duration);
         }
     }
