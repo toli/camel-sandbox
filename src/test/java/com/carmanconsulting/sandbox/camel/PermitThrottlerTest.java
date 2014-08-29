@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PermitThrottlerTest extends JmsTestCase {
@@ -33,6 +34,7 @@ public class PermitThrottlerTest extends JmsTestCase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PermitThrottlerTest.class);
     private static final String PERMITTED_HEADER = "permitted";
+    private static Semaphore sema;
 
     @Produce(uri = "jms:queue:input")
     private ProducerTemplate template;
@@ -67,7 +69,8 @@ public class PermitThrottlerTest extends JmsTestCase {
                         .choice()
                         .when(header(PERMITTED_HEADER)).to("jms:queue:output")
                         .otherwise().to("jms:queue:input");
-                from("jms:queue:output?concurrentConsumers=20").process(new RandomProcessor(1000, 2000)).to("log:processed?showAll=true&multiline=true&level=INFO").to("jms:queue:release");
+                from("jms:queue:output?concurrentConsumers=20").process(
+                        new RandomProcessor(TimeUnit.SECONDS.toMillis(7), 2000)).to("log:processed?showAll=true&multiline=true&level=INFO").to("jms:queue:release");
                 from("jms:queue:release").process(new ReleasePermitProcessor(correlationIdExpression, engine));
             }
         };
@@ -75,14 +78,15 @@ public class PermitThrottlerTest extends JmsTestCase {
 
     @Test
     public void testThrottlingEngine() throws Exception {
-        final Random random = new Random();
-        final int nGroups = 10;
-        for (int i = 0; i < 100; ++i) {
+        Random random = new Random();
+        int nGroups = 10;
+        int nMessages = 10;
+        sema = new Semaphore(0);
+        for (int i = 0; i < nMessages; ++i) {
             final int group = random.nextInt(nGroups);
             template.sendBodyAndHeader(String.format("Message %d (group %d)", i, group), "group", group);
         }
-
-        Thread.sleep(20000);
+        sema.acquire(nMessages);
     }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -118,6 +122,7 @@ public class PermitThrottlerTest extends JmsTestCase {
         @Override
         public void process(Exchange exchange) throws Exception {
             final long duration = minimumDuration + Math.abs(random.nextLong()) % variance;
+            LOGGER.info("sleeping {} for exchange {}", duration, exchange);
             Thread.sleep(duration);
         }
     }
@@ -136,6 +141,7 @@ public class PermitThrottlerTest extends JmsTestCase {
             final String correlationId = correlationIdExpression.evaluate(exchange, String.class);
             LOGGER.info("Releasing permit ({})...", correlationId);
             engine.releasePermit(correlationId);
+            sema.release();
         }
     }
 
